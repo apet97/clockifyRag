@@ -5,9 +5,10 @@ from clockify_rag.utils import check_ollama_connectivity
 
 
 def test_check_ollama_connectivity_success(monkeypatch):
-    def fake_get(url, timeout):
+    def fake_get(url, timeout, **kwargs):
         assert url == "http://localhost:11434/api/tags"
         assert timeout == pytest.approx(1.5)
+        assert kwargs.get("allow_redirects") is False
 
         class Response:
             def raise_for_status(self):
@@ -22,7 +23,7 @@ def test_check_ollama_connectivity_success(monkeypatch):
 
 
 def test_check_ollama_connectivity_failure(monkeypatch):
-    def fake_get(url, timeout):
+    def fake_get(url, timeout, **kwargs):
         raise requests.exceptions.ConnectTimeout("timed out")
 
     monkeypatch.setattr("clockify_rag.utils.requests.get", fake_get)
