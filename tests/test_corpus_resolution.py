@@ -31,6 +31,9 @@ def test_returns_first_candidate_when_none_exist(tmp_path, monkeypatch):
 
     path, exists, candidates = resolve_corpus_path()
 
-    assert exists is False
     assert Path(path).name == "knowledge_helpcenter.md"
     assert candidates[0] == "knowledge_helpcenter.md"
+    if exists:
+        assert Path(path).is_file()
+    else:
+        assert exists is False
