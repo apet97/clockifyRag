@@ -5,8 +5,8 @@ RAG service that answers Clockify/CAKE support questions with citations. Default
 ## macOS M1 Pro – Clone > Steps > Instant Run
 ```bash
 # 1) Clone and enter the repo
-git clone https://github.com/apet97/ragtool.git
-cd ragtool
+git clone https://github.com/apet97/clockifyRag.git
+cd clockifyRag
 
 # 2) Create and activate conda env (Python 3.12)
 conda create -n clockify-rag python=3.12 -y
@@ -30,8 +30,8 @@ No environment variables required.
 ## Launch the CLI (best path, VPN, zero env vars)
 ```bash
 # 1) Clone and enter the repo
-git clone https://github.com/apet97/ragtool.git
-cd ragtool
+git clone https://github.com/apet97/clockifyRag.git
+cd clockifyRag
 
 # 2) Create and activate conda env (Python 3.12)
 conda create -n clockify-rag python=3.12 -y
@@ -99,7 +99,8 @@ Use `clockify_rag.cli_modern` for all CLI usage.
 
 ## Knowledge base & artifacts
 - Ingest reads `knowledge_helpcenter.md`; resolves via `resolve_corpus_path`.
-- Artifacts live beside the corpus unless `--output` is set: `chunks.jsonl`, `vecs_n.npy`, `bm25.json`, `faiss.index` (when FAISS present), `index.meta.json`.
+- If the file isn't in the current directory, the packaged copy (site-packages) is used when available.
+- Artifacts live beside the corpus in the current working directory: `chunks.jsonl`, `vecs_n.npy`, `bm25.json`, `faiss.index` (when FAISS present), `index.meta.json`.
 
 ## Testing
 - Full suite: `pytest` (tests pin local embeddings; Ollama not required). Last run: all passed on Python 3.12; FAISS tests skipped unless installed.

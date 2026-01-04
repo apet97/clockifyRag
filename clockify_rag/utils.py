@@ -40,6 +40,8 @@ def resolve_corpus_path(preferred: Optional[str] = None) -> tuple[str, bool, Lis
         preferred = os.path.expandvars(os.path.expanduser(preferred))
         candidates.append(preferred)
     candidates.extend(DEFAULT_CORPUS_FILES)
+    package_root = pathlib.Path(__file__).resolve().parents[1]
+    candidates.append(str(package_root / ALLOWED_CORPUS_FILENAME))
 
     # Deduplicate while preserving order
     seen: List[str] = []

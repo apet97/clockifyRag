@@ -354,9 +354,6 @@ def ingest(
         "-i",
         help="Input markdown file (only knowledge_helpcenter.md is supported)",
     ),
-    output: Optional[str] = typer.Option(
-        None, "--output", "-o", help="Output directory for index (default: current directory)"
-    ),
     force: bool = typer.Option(False, "--force", "-f", help="Force rebuild even if index exists"),
 ) -> None:
     """Build or rebuild the index from knowledge base.
@@ -375,39 +372,21 @@ def ingest(
         raise typer.Exit(2)
 
     input_file, exists, candidates = resolve_corpus_path(input)
-    output_dir = output or "."
-
     if not exists:
         console.print(f"❌ Input file not found. Looked for: {', '.join(candidates)}")
         raise typer.Exit(1)
 
     input_file_abs = os.path.abspath(input_file)
-    output_dir_abs = os.path.abspath(output_dir)
 
     console.print(f"📥 Ingesting: {input_file_abs}")
-    console.print(f"📤 Output directory: {output_dir_abs}")
 
     try:
-        orig_cwd = os.getcwd()
-        if output_dir_abs != orig_cwd:
-            os.makedirs(output_dir_abs, exist_ok=True)
-        try:
-            os.chdir(output_dir_abs)
-            build(input_file_abs, retries=2)
-        finally:
-            os.chdir(orig_cwd)
+        build(input_file_abs, retries=2)
 
         console.print("✅ Index built successfully!")
 
         # Verify
-        verify_cwd = output_dir_abs
-        if verify_cwd != orig_cwd:
-            os.chdir(verify_cwd)
-        try:
-            idx_info = get_index_info()
-        finally:
-            if verify_cwd != orig_cwd:
-                os.chdir(orig_cwd)
+        idx_info = get_index_info()
         if idx_info["index_ready"]:
             console.print("✅ All artifacts verified")
         else:

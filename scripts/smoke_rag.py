@@ -29,7 +29,7 @@ def run_smoke_test(question: str, top_k: int, pack_top: int, threshold: float, r
         chunks = index["chunks"]
         vecs_n = index["vecs_n"]
         bm = index["bm"]
-        hnsw = index.get("faiss_index")
+        hnsw = index.get("hnsw")
     else:
         chunks, vecs_n, bm, hnsw = index
     result = answer_once(

@@ -69,7 +69,7 @@ jobs:
         PYTORCH_ENABLE_MPS_FALLBACK: "1"
         PYTORCH_MPS_HIGH_WATERMARK_RATIO: "0.0"
       run: |
-        poetry run pytest tests/ -v --cov=clockify_rag --cov=clockify_support_cli_final --cov-report=term-missing --cov-report=xml
+        poetry run pytest tests/ -v --cov=clockify_rag --cov-report=term-missing --cov-report=xml
       continue-on-error: false  # Fail if tests fail
 
     - name: Prepare dummy benchmark artifacts

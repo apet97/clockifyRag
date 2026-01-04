@@ -366,7 +366,7 @@ def main():
         chunks = result["chunks"]
         vecs_n = result["vecs_n"]
         bm = result["bm"]
-        hnsw = result.get("faiss_index")  # May be None
+        hnsw = result.get("hnsw")  # May be None
     else:
         # Legacy tuple format (backward compatibility)
         chunks, vecs_n, bm, hnsw = result

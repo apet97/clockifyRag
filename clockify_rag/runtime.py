@@ -122,7 +122,7 @@ def ensure_index_ready(retries: int = 0) -> Tuple:
         chunks = result["chunks"]
         vecs_n = result["vecs_n"]
         bm = result["bm"]
-        hnsw = result.get("faiss_index")
+        hnsw = result.get("hnsw")
     elif isinstance(result, tuple):
         chunks, vecs_n, bm, hnsw = result
     else:

@@ -302,7 +302,7 @@ def evaluate(
                 retrieval_chunks = result["chunks"]
                 vecs_n = result["vecs_n"]
                 bm = result["bm"]
-                hnsw = result.get("faiss_index")
+                hnsw = result.get("hnsw")
             else:
                 retrieval_chunks, vecs_n, bm, hnsw = result
 

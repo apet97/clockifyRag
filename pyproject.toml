@@ -32,10 +32,11 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-homepage = "https://github.com/apet97/1rag"
-documentation = "https://github.com/apet97/1rag/docs"
-repository = "https://github.com/apet97/1rag.git"
+homepage = "https://github.com/apet97/clockifyRag"
+documentation = "https://github.com/apet97/clockifyRag"
+repository = "https://github.com/apet97/clockifyRag.git"
 packages = [{include = "clockify_rag"}]
+include = ["knowledge_helpcenter.md"]
 
 [tool.poetry.dependencies]
 python = "^3.11,<3.14"
