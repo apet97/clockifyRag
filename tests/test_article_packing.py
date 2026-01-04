@@ -55,8 +55,8 @@ def test_pack_snippets_respects_budget_by_trimming_articles():
 
     context_block, packed_ids, used_tokens, article_blocks = pack_snippets(chunks, [0, 1, 2], pack_top=2, num_ctx=50)
 
-    # Budget too small to include both articles; with best-last ordering we may keep only the first in order
+    # Budget too small to include both articles; keep the highest-ranked article first
     assert len(article_blocks) == 1
-    assert article_blocks[0]["url"] == "https://b"
-    assert all(pid.startswith("b-") for pid in packed_ids)
-    assert "Alpha" not in context_block
+    assert article_blocks[0]["url"] == "https://a"
+    assert all(pid.startswith("a-") for pid in packed_ids)
+    assert "Beta" not in context_block

@@ -207,11 +207,7 @@ class OllamaAPIClient(BaseLLMClient):
 
     def _get_session(self, retries: int) -> requests.Session:
         """Return a requests.Session configured for the desired retry count."""
-
-        if retries == self.retries:
-            return self.session
-
-        session = get_session(retries=retries)
+        session = get_session(retries=retries, use_thread_local=True)
         session.trust_env = ALLOW_PROXIES
         return session
 

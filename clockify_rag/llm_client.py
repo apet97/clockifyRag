@@ -5,7 +5,7 @@ the corporate Ollama instance. Designed for VPN environments with:
 
 - Non-streaming generation (VPN stability)
 - Configurable timeouts (default 120s)
-- Transparent fallback model selection
+- Optional fallback model selection (no remote probe by default)
 - VPN-safe error handling (no indefinite hangs)
 """
 
@@ -97,7 +97,7 @@ def get_llm_client(temperature: float = 0.0) -> ChatOllama:
         ChatOllama instance configured for remote generation with:
         - Non-streaming (VPN safe, no infinite hangs)
         - Timeout enforcement (120s default via OLLAMA_TIMEOUT)
-        - Selected model (with automatic fallback applied at config import time)
+        - Selected model (defaults to RAG_CHAT_MODEL; no remote probe by default)
         - Base URL: RAG_OLLAMA_URL (corporate Ollama instance)
 
     Usage:
@@ -110,9 +110,9 @@ def get_llm_client(temperature: float = 0.0) -> ChatOllama:
         ```
 
     Notes:
-        - Model selection happens at config import time (_select_best_model)
-        - If primary model unavailable, falls back to RAG_CHAT_FALLBACK_MODEL
-        - If Ollama unreachable at startup, uses primary anyway (assumes VPN will reconnect)
+        - Model selection uses config.get_llm_model() and defaults to RAG_CHAT_MODEL
+        - Fallback selection is opt-in (invoke config._select_best_model explicitly)
+        - If Ollama is unreachable, this client still uses the configured primary model
         - All calls timeout after OLLAMA_TIMEOUT seconds (default 120s, configurable)
     """
     model_name = config.get_llm_model()

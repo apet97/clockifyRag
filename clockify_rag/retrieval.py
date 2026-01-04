@@ -444,6 +444,7 @@ def expand_query(question: str) -> str:
     """
     # FIX (Error #5): Validate input at entry point
     question = validate_query_length(question)
+    max_length = config.MAX_QUERY_LENGTH
 
     if not question:
         return question
@@ -459,7 +460,15 @@ def expand_query(question: str) -> str:
                     expanded_terms.append(syn)
 
     if expanded_terms:
+        max_extra = max_length - len(question) - 1
+        if max_extra <= 0:
+            return question
+
         expansion = " ".join(expanded_terms)
+        if len(expansion) > max_extra:
+            expansion = expansion[:max_extra].rsplit(" ", 1)[0].strip()
+        if not expansion:
+            return question
         return f"{question} {expansion}"
 
     return question
@@ -668,9 +677,6 @@ def retrieve(
         dense_from_ann = np.array([d for _, d in valid_pairs], dtype=np.float32)
 
         dense_scores = dense_from_ann
-        dense_scores_full = np.zeros(n_chunks, dtype=np.float32)
-        for idx_val, score_val in valid_pairs:
-            dense_scores_full[idx_val] = score_val
         dense_computed = len(candidate_idx)
         dot_elapsed = 0.0
     elif hnsw:
@@ -1002,8 +1008,9 @@ def pack_snippets(
     """Pack snippets by article, respecting token budget and hard caps.
 
     Groups retrieved chunks by their source article (URL or article_id), preserves
-    retrieval order across articles, and concatenates chunks within each article
-    in document order. Returns a rendered context string, the list of chunk IDs
+    retrieval order during selection, concatenates chunks within each article
+    in document order, and then moves the top-ranked article to the end for
+    recency bias. Returns a rendered context string, the list of chunk IDs
     actually included, the token count used, and a list of article-level blocks
     suitable for LLM prompting.
     """
@@ -1044,8 +1051,8 @@ def pack_snippets(
     selected_blocks: List[Dict[str, Any]] = []
     used_tokens = 0
 
-    # Selection phase: walk in reverse rank order so the last/best article is packed first under tight budgets
-    for art_pos, art_key in enumerate(reversed(article_order), start=1):
+    # Selection phase: walk in rank order so best articles get budget first
+    for art_pos, art_key in enumerate(article_order, start=1):
         if used_tokens >= effective_budget:
             break
 

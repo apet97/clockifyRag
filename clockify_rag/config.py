@@ -107,6 +107,34 @@ def _parse_env_float(
     return parsed
 
 
+def _parse_env_float_with_legacy(
+    primary: str,
+    default: float,
+    legacy_keys: Optional[Iterable[str]] = None,
+    min_val: Optional[float] = None,
+    max_val: Optional[float] = None,
+) -> float:
+    """Parse float from environment with legacy key support."""
+    raw_value = _get_env_value(primary, None, legacy_keys=legacy_keys)
+    if raw_value is None:
+        return default
+
+    try:
+        parsed = float(raw_value)
+    except ValueError as e:
+        _logger.error(f"Invalid float for {primary}='{raw_value}': {e}. Using default: {default}")
+        return default
+
+    if min_val is not None and parsed < min_val:
+        _logger.warning(f"{primary}={parsed} below minimum {min_val}, clamping")
+        return min_val
+    if max_val is not None and parsed > max_val:
+        _logger.warning(f"{primary}={parsed} above maximum {max_val}, clamping")
+        return max_val
+
+    return parsed
+
+
 def _parse_env_int(key: str, default: int, min_val: Optional[int] = None, max_val: Optional[int] = None) -> int:
     """Parse int from environment with validation.
 
@@ -481,15 +509,17 @@ class KPI:
 # Task G: Deterministic timeouts (environment-configurable for ops)
 # FIX (Error #13): Use safe env var parsing
 # Support both EMBEDDING_* (preferred) and EMB_* (legacy) names
-EMB_CONNECT_T = _parse_env_float(
-    _get_env_value("EMBEDDING_CONNECT_TIMEOUT", None, legacy_keys=("EMB_CONNECT_TIMEOUT",)) or "5.0",
+EMB_CONNECT_T = _parse_env_float_with_legacy(
+    "EMBEDDING_CONNECT_TIMEOUT",
     5.0,
+    legacy_keys=("EMB_CONNECT_TIMEOUT",),
     min_val=1.0,
     max_val=60.0,
 )
-EMB_READ_T = _parse_env_float(
-    _get_env_value("EMBEDDING_READ_TIMEOUT", None, legacy_keys=("EMB_READ_TIMEOUT",)) or "60.0",
+EMB_READ_T = _parse_env_float_with_legacy(
+    "EMBEDDING_READ_TIMEOUT",
     60.0,
+    legacy_keys=("EMB_READ_TIMEOUT",),
     min_val=5.0,
     max_val=300.0,
 )
