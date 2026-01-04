@@ -23,7 +23,7 @@ from rich.table import Table
 from . import config
 from .answer import answer_once, answer_to_json
 from .runtime import ensure_index_ready, chat_repl
-from .indexing import build
+from .indexing import build, index_is_fresh
 from .utils import ALLOWED_CORPUS_FILENAME, check_ollama_connectivity, resolve_corpus_path
 
 logger = logging.getLogger(__name__)
@@ -377,6 +377,10 @@ def ingest(
         raise typer.Exit(1)
 
     input_file_abs = os.path.abspath(input_file)
+
+    if not force and index_is_fresh(input_file_abs):
+        console.print("✅ Index already up to date. Use --force to rebuild.")
+        return
 
     console.print(f"📥 Ingesting: {input_file_abs}")
 

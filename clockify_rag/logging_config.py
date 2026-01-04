@@ -80,14 +80,17 @@ class TextFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         """Format log record with optional colors and correlation ID."""
+        original_levelname = record.levelname
         if self.use_colors:
             color = self.COLORS.get(record.levelname, self.COLORS["RESET"])
             reset = self.COLORS["RESET"]
-            # Store original for restore
-            original_levelname = record.levelname
             record.levelname = f"{color}{original_levelname}{reset}"
 
-        result = super().format(record)
+        try:
+            result = super().format(record)
+        finally:
+            if self.use_colors:
+                record.levelname = original_levelname
 
         # Prepend correlation ID if available
         if self.include_correlation_id:

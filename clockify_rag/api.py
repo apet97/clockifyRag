@@ -39,7 +39,7 @@ from .correlation import (
     validate_correlation_id,
 )
 from .exceptions import ValidationError
-from .indexing import build
+from .indexing import build, index_is_fresh
 from .metrics import MetricNames, get_metrics
 from .utils import ALLOWED_CORPUS_FILENAME, check_ollama_connectivity, resolve_corpus_path
 
@@ -543,10 +543,24 @@ def create_app() -> FastAPI:
         if not exists:
             raise HTTPException(status_code=404, detail=f"Input file not found. Looked for: {', '.join(candidates)}")
 
+        with app.state.lock:
+            already_ready = app.state.index_ready
+
+        if not request.force and already_ready and index_is_fresh(input_file):
+            return IngestResponse(
+                status="skipped",
+                message=f"Index already up to date for {input_file}",
+                timestamp=datetime.now(),
+                index_ready=True,
+            )
+
         def do_ingest():
             """Background task to build index."""
             started_at = time.time()
             with app.state.ingest_lock:
+                with app.state.lock:
+                    prior_ready = app.state.index_ready
+                    prior_state = (app.state.chunks, app.state.vecs_n, app.state.bm, app.state.hnsw)
                 try:
                     logger.info(f"Starting ingest from {input_file}")
                     build(input_file, retries=2)
@@ -556,7 +570,11 @@ def create_app() -> FastAPI:
                     logger.info(f"Ingest completed successfully in {duration_ms:.1f} ms")
                 except Exception as e:
                     logger.error(f"Ingest failed: {e}", exc_info=True)
-                    _clear_index_state(app)
+                    if prior_ready:
+                        logger.warning("Restoring previous index state after ingest failure")
+                        _set_index_state(app, prior_state)
+                    else:
+                        _clear_index_state(app)
 
         background_tasks.add_task(do_ingest)
 

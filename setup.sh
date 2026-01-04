@@ -3,7 +3,7 @@
 # One-command setup: ./setup.sh
 #
 # This script:
-# 1. Checks system requirements (Python 3.9+, curl)
+# 1. Checks system requirements (Python 3.11-3.13, curl)
 # 2. Creates Python virtual environment
 # 3. Installs dependencies
 # 4. Checks Ollama connectivity
@@ -44,7 +44,7 @@ echo ""
 # Step 1: Check Python version
 info "Checking Python version..."
 if ! command -v python3 &> /dev/null; then
-    error "python3 not found. Please install Python 3.9 or higher."
+    error "python3 not found. Please install Python 3.11-3.13."
     exit 1
 fi
 
@@ -52,8 +52,13 @@ PYTHON_VERSION=$(python3 --version | awk '{print $2}')
 PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1)
 PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d. -f2)
 
-if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 9 ]); then
-    error "Python 3.9+ required. Found: $PYTHON_VERSION"
+if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 11 ]); then
+    error "Python 3.11+ required. Found: $PYTHON_VERSION"
+    exit 1
+fi
+
+if [ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -ge 14 ]; then
+    error "Python 3.11-3.13 required. Found: $PYTHON_VERSION"
     exit 1
 fi
 

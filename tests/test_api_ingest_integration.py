@@ -82,8 +82,8 @@ async def test_ingest_then_query_succeeds(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_ingest_failure_clears_cached_state(tmp_path, monkeypatch):
-    """Ensure a failed ingest resets any cached index artifacts."""
+async def test_ingest_failure_preserves_cached_state(tmp_path, monkeypatch):
+    """Ensure a failed ingest preserves the previously loaded index artifacts."""
 
     kb_path = tmp_path / ALLOWED_CORPUS_FILENAME
     kb_path.write_text("# Title\n\nSome helpful docs.", encoding="utf-8")
@@ -102,14 +102,14 @@ async def test_ingest_failure_clears_cached_state(tmp_path, monkeypatch):
     monkeypatch.setattr(api_module, "build", failing_build)
 
     app = api_module.create_app()
-    # Pre-populate with stale state that should be cleared on failure
-    app.state.chunks = ["stale"]
-    app.state.vecs_n = ["stale"]
-    app.state.bm = {"stale": True}
-    app.state.hnsw = "stale"
-    app.state.index_ready = True
 
     async with LifespanManager(app):
+        app.state.chunks = ["stale"]
+        app.state.vecs_n = ["stale"]
+        app.state.bm = {"stale": True}
+        app.state.hnsw = "stale"
+        app.state.index_ready = True
+
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
             ingest_response = await client.post("/v1/ingest", json={"input_file": str(kb_path)})
@@ -117,20 +117,20 @@ async def test_ingest_failure_clears_cached_state(tmp_path, monkeypatch):
             assert ingest_response.status_code == 200
             assert build_calls["count"] == 1
 
-            # Wait for the background task to clear cached state
+            # Wait for the background task to restore cached state
             for _ in range(20):
                 if (
-                    app.state.index_ready is False
-                    and app.state.chunks is None
-                    and app.state.vecs_n is None
-                    and app.state.bm is None
-                    and app.state.hnsw is None
+                    app.state.index_ready is True
+                    and app.state.chunks == ["stale"]
+                    and app.state.vecs_n == ["stale"]
+                    and app.state.bm == {"stale": True}
+                    and app.state.hnsw == "stale"
                 ):
                     break
                 await asyncio.sleep(0.01)
 
-            assert app.state.index_ready is False
-            assert app.state.chunks is None
-            assert app.state.vecs_n is None
-            assert app.state.bm is None
-            assert app.state.hnsw is None
+            assert app.state.index_ready is True
+            assert app.state.chunks == ["stale"]
+            assert app.state.vecs_n == ["stale"]
+            assert app.state.bm == {"stale": True}
+            assert app.state.hnsw == "stale"

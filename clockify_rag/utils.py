@@ -278,7 +278,11 @@ def check_ollama_connectivity(url: str, timeout: float = 3.0) -> str:
     normalized = validate_ollama_url(url)
     probe_url = f"{normalized}/api/tags"
     try:
-        response = requests.get(probe_url, timeout=timeout)
+        from .config import allow_proxies_enabled
+
+        with requests.Session() as session:
+            session.trust_env = allow_proxies_enabled()
+            response = session.get(probe_url, timeout=timeout, allow_redirects=False)
         response.raise_for_status()
         logger.debug("Ollama connectivity OK: %s", probe_url)
         return normalized

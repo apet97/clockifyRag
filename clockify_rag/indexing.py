@@ -602,3 +602,51 @@ def load_index(kb_path: Optional[str] = None):
         "faiss_index": faiss_index,
         "meta": meta,
     }
+
+
+def index_is_fresh(kb_path: str) -> bool:
+    """Return True when index artifacts match the current knowledge base and backend."""
+
+    kb_path = os.path.expandvars(os.path.expanduser(str(kb_path)))
+    if not os.path.exists(kb_path):
+        return False
+
+    required_files = [
+        config.FILES["chunks"],
+        config.FILES["emb"],
+        config.FILES["meta"],
+        config.FILES["bm25"],
+        config.FILES["index_meta"],
+    ]
+    if not all(os.path.exists(path) for path in required_files):
+        return False
+
+    try:
+        with open(config.FILES["index_meta"], encoding="utf-8") as f:
+            meta = json.load(f)
+    except Exception:
+        return False
+
+    stored_kb_sha = meta.get("kb_sha256")
+    if not stored_kb_sha:
+        return False
+
+    try:
+        current_kb_sha = compute_sha256(kb_path)
+    except Exception as exc:
+        logger.debug("Failed to compute KB SHA for freshness check: %s", exc)
+        return False
+
+    if current_kb_sha != stored_kb_sha:
+        return False
+
+    stored_backend = meta.get("emb_backend")
+    if stored_backend and stored_backend != config.EMB_BACKEND:
+        return False
+
+    expected_model = config.RAG_EMBED_MODEL if config.EMB_BACKEND == "ollama" else "all-MiniLM-L6-v2"
+    stored_model = meta.get("emb_model")
+    if stored_model and stored_model != expected_model:
+        return False
+
+    return True

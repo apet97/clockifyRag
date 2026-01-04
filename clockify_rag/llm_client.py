@@ -78,9 +78,54 @@ def _get_http_client() -> httpx.Client:
         with _HTTP_CLIENT_LOCK:
             # Double-checked locking pattern
             if _HTTP_CLIENT is None:
-                _HTTP_CLIENT = httpx.Client(timeout=config.OLLAMA_TIMEOUT)
-                logger.debug(f"Created cached HTTP client with timeout={config.OLLAMA_TIMEOUT}s")
+                _HTTP_CLIENT = httpx.Client(timeout=config.OLLAMA_TIMEOUT, trust_env=config.ALLOW_PROXIES)
+                logger.debug(
+                    "Created cached HTTP client with timeout=%.1fs trust_env=%s",
+                    config.OLLAMA_TIMEOUT,
+                    config.ALLOW_PROXIES,
+                )
     return _HTTP_CLIENT
+
+
+def _build_chat_client_kwargs(model_name: str, temperature: float) -> dict:
+    """Return kwargs for ChatOllama with best-effort timeout/proxy configuration."""
+
+    kwargs = {
+        "base_url": config.RAG_OLLAMA_URL,
+        "model": model_name,
+        "temperature": temperature,
+    }
+
+    try:
+        import inspect
+
+        sig = inspect.signature(ChatOllama)
+
+        if "timeout" in sig.parameters:
+            kwargs["timeout"] = config.OLLAMA_TIMEOUT
+        elif "request_timeout" in sig.parameters:
+            kwargs["request_timeout"] = config.OLLAMA_TIMEOUT
+
+        if "http_client" in sig.parameters:
+            kwargs["http_client"] = _get_http_client()
+        elif "client" in sig.parameters or "client_params" in sig.parameters:
+            try:
+                from ollama import Client as OllamaHttpClient
+
+                client = OllamaHttpClient(host=config.RAG_OLLAMA_URL, timeout=config.OLLAMA_TIMEOUT)
+                if "client" in sig.parameters:
+                    kwargs["client"] = client
+                else:
+                    kwargs["client_params"] = {"client": client}
+            except Exception as exc:
+                logger.debug("Could not configure ollama.Client timeout: %s", exc)
+
+        if "stream" in sig.parameters:
+            kwargs["stream"] = False
+    except Exception:
+        pass
+
+    return kwargs
 
 
 def get_llm_client(temperature: float = 0.0) -> ChatOllama:
@@ -121,11 +166,8 @@ def get_llm_client(temperature: float = 0.0) -> ChatOllama:
         f"base_url={config.RAG_OLLAMA_URL}, timeout={config.OLLAMA_TIMEOUT}s, streaming=False"
     )
 
-    return ChatOllama(
-        base_url=config.RAG_OLLAMA_URL,
-        model=model_name,
-        temperature=temperature,
-    )
+    kwargs = _build_chat_client_kwargs(model_name, temperature)
+    return ChatOllama(**kwargs)
 
 
 def get_llm_client_async(temperature: float = 0.0) -> ChatOllama:

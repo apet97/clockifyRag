@@ -61,7 +61,7 @@ ENV RAG_OLLAMA_URL=http://host.docker.internal:11434 \
     RAG_LOG_FILE=/app/logs/rag_queries.jsonl
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "from clockify_rag.error_handlers import print_system_health; print_system_health()" > /dev/null || exit 1
+    CMD python -c "from clockify_rag.error_handlers import print_system_health; import sys; sys.exit(0 if print_system_health() else 1)" > /dev/null
 
 EXPOSE 8000
 
