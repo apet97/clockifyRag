@@ -1,0 +1,52 @@
+# Knowledge base artifacts (generated, not versioned)
+chunks.jsonl
+vecs_n.npy
+vecs_f16.memmap
+vecs.npy
+meta.jsonl
+bm25.json
+index.meta.json
+
+# Help corpus inputs (large data, provided outside git)
+knowledge_full.md
+clockify_help_corpus.en.md
+
+# v4.1 FAISS and ANN indexes
+faiss.index
+hnsw_cosine.bin
+emb_cache.jsonl
+
+# Build artifacts
+.build.lock
+*.pyc
+__pycache__/
+*.egg-info/
+dist/
+build/
+build.log
+
+# Query logs
+rag_queries.jsonl
+
+# Process files
+.shim.pid
+shim.log
+
+# Environment
+.env
+.venv
+.venv-test-py312/
+venv/
+*.bak
+
+# Poetry
+.poetry/
+poetry.toml
+.cache/pypoetry/
+
+# OS
+.DS_Store
+.swp
+.swo
+*~
+rag_env/

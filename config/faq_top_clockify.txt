@@ -1,0 +1,99 @@
+# Clockify FAQ candidates (one per line; comments start with #)
+
+# Getting started / access
+How do I sign up and create a Clockify workspace?
+How do I invite users and assign roles (admin, manager, regular, limited)?
+How do I transfer workspace ownership?
+How do I delete or archive a workspace?
+How do I back up or export my Clockify data?
+Where do I find my API key and how do I use it?
+How do I enable SSO or passwordless login?
+How do data regions work and where is my data stored?
+
+# Time tracking basics
+How do I start and stop a timer?
+How do I add manual time entries?
+How do I add time for other users?
+How do I edit, split, or merge an existing time entry?
+How do I favorite or pin common tasks?
+How do I lock timesheets to prevent changes?
+How do I track breaks or use kiosk mode with PINs?
+How do I track time offline and sync later?
+How do I force timers or prevent overlapping entries?
+How do I use idle detection, Pomodoro, or reminders?
+How do I round time entries or change duration format?
+How do I handle multiple time zones for users?
+How do I use quick shortcuts or templates for time entries?
+
+# Projects, clients, budgets, rates
+How do I create projects and clients?
+How do I set hourly rates or task rates?
+How do I set budgets or estimates and get alerts?
+How do I track billable vs non-billable time?
+How do I manage people on projects and control access?
+How do I use multiple currencies for projects or clients?
+How do I create and reuse project templates?
+How do I assign tasks and track task estimates?
+How do I set project alerts for budget overages?
+How do I archive or reactivate projects and clients?
+
+# Reporting and approvals
+How do I use the Summary, Detailed, and Assignment reports?
+How do I filter and customize reports (fields, rounding, duration format)?
+How do I export reports (CSV/PDF/XLSX) with custom fields?
+How do I schedule or share reports?
+How do I approve timesheets and expenses?
+How do I view attendance or dashboard metrics?
+How do I set targets and reminders for teams?
+How do I use audit logs to review changes?
+
+# Time off and holidays
+How do I create and manage time off policies?
+How do I request or approve time off?
+How do I track holidays and company-wide time off?
+How do I accrue time off balances and view usage?
+How do I export time off data?
+
+# Expenses and invoices
+How do I track expenses?
+How do I create invoices from tracked time and expenses?
+How do I set taxes and currencies on invoices?
+How do I send invoice emails to clients?
+How do I integrate invoices or expenses with QuickBooks?
+How do I manage expense categories and receipts?
+
+# Integrations and add-ons
+How do I integrate with Jira or other tools?
+How do I import data into Clockify?
+How do I use the browser extension to track time?
+How do I enable screenshots, GPS tracking, or activity monitoring?
+How do I customize kiosk settings and PIN rules?
+How do I sync projects/tasks with Jira?
+How do I connect to accounting tools like QuickBooks or Xero?
+How do I migrate data from another time tracker into Clockify?
+How do I use webhooks or the API for automation?
+
+# Subscription and billing
+How do I choose or change a subscription plan?
+How do I add or remove bundle seats?
+How do I start or end a free trial?
+How do I cancel or downgrade my subscription?
+How do I manage invoices, payment methods, and billing cycles?
+How do I switch between monthly and annual billing?
+
+# Administration and security
+How do I manage user permissions and roles?
+How do I audit user activity and view logs?
+How do I change email addresses or reset passwords?
+How do I deactivate or delete a user account?
+How do I handle data privacy and access controls?
+How do I enforce SSO or 2FA for users?
+How do I restrict access to specific features or pages?
+How do I configure targets and reminders at the workspace level?
+
+# Mobile and desktop apps
+How do I track time on the mobile app (iOS/Android)?
+How do I use the desktop app (Mac/Windows/Linux)?
+How do I use the browser extension to track time?
+How do I enable GPS tracking on mobile?
+How do I troubleshoot sync issues between mobile/desktop and the web app?

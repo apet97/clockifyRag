@@ -1,0 +1,80 @@
+name: Lint
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  lint:
+    name: Lint with ruff and mypy
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Cache Poetry packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pypoetry
+        key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-poetry-
+
+    - name: Install Poetry
+      run: pip install "poetry>=1.7"
+
+    - name: Install dependencies
+      run: |
+        # Use Poetry to install dev dependencies for linting
+        poetry install --no-interaction --extras dev
+
+    - name: Run ruff linter
+      run: |
+        poetry run ruff check clockify_support_cli_final.py --config pyproject.toml
+      continue-on-error: true
+
+    - name: Run mypy type checker
+      run: |
+        poetry run mypy clockify_support_cli_final.py --config-file pyproject.toml
+      continue-on-error: true
+
+  format-check:
+    name: Check code formatting
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Cache Poetry packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pypoetry
+        key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-poetry-
+
+    - name: Install Poetry
+      run: pip install "poetry>=1.7"
+
+    - name: Install black via Poetry
+      run: |
+        poetry install --no-interaction --extras dev
+
+    - name: Check formatting with black
+      run: |
+        poetry run black --check --diff clockify_support_cli_final.py --config pyproject.toml
+      continue-on-error: true

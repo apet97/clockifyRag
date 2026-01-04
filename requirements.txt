@@ -1,0 +1,3 @@
+# Primary dependency definitions live in pyproject.toml.
+# Installing from this file keeps legacy workflows working:
+-e .

@@ -1,0 +1,55 @@
+# Sample FAQ questions for Clockify RAG system
+# Lines starting with # are comments
+# One question per line
+
+How do I track time in Clockify?
+What are the pricing plans?
+Can I use Clockify offline?
+How do I create a new project?
+How do I invite team members?
+What is the difference between billable and non-billable time?
+How do I export my timesheet?
+Can I track time on mobile?
+How do I set up SSO?
+What integrations does Clockify support?
+How do I delete a time entry?
+How do I add tags to time entries?
+Can I track time for multiple projects?
+How do I generate reports?
+What are workspaces in Clockify?
+How do I set hourly rates?
+Can I track time automatically?
+How do I edit time entries?
+What is the time tracker widget?
+How do I lock timesheets?
+Can I set time entry as required?
+How do I add custom fields?
+How do I set up approval workflow?
+What are time rounding options?
+How do I bulk edit time entries?
+Can I import time from other tools?
+How do I set up notifications?
+What are user roles and permissions?
+How do I archive projects?
+Can I set project budgets?
+How do I track expenses?
+What are project templates?
+How do I set up recurring projects?
+Can I track time by tasks?
+How do I use the timer?
+What is manual time entry mode?
+How do I set up breaks?
+Can I track overtime?
+How do I set work hours?
+What are public holidays?
+How do I set up time off?
+Can I see who is tracking time?
+How do I use the kiosk mode?
+What is GPS tracking?
+How do I use screenshots feature?
+Can I set required fields?
+How do I customize my dashboard?
+What are favorites in Clockify?
+How do I use time estimates?
+Can I set project color?
+How do I filter time entries?
