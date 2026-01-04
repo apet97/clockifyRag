@@ -108,6 +108,17 @@ class QueryRequest(BaseModel):
         return v
 
 
+class Citation(BaseModel):
+    """Rich citation details for UI rendering."""
+
+    id: str
+    title: Optional[str] = None
+    url: Optional[str] = None
+    section: Optional[str] = None
+    breadcrumb: Optional[str] = None
+    article_id: Optional[str] = None
+
+
 class QueryResponse(BaseModel):
     """Response body for /v1/query endpoint."""
 
@@ -122,6 +133,7 @@ class QueryResponse(BaseModel):
     routing: Optional[Dict[str, Any]] = Field(None, description="Routing recommendation (if available)")
     timing: Optional[Dict[str, Any]] = Field(None, description="Latency breakdown in milliseconds")
     correlation_id: Optional[str] = Field(None, description="Request correlation ID for tracing")
+    citations: Optional[list[Citation]] = Field(None, description="Rich citation details")
 
 
 class HealthResponse(BaseModel):
@@ -480,6 +492,7 @@ def create_app() -> FastAPI:
             selected_chunks = result.get("selected_chunks", [])
             chunk_ids = result.get("selected_chunk_ids") or selected_chunks
             sources_used = result.get("sources_used") or metadata.get("sources_used") or []
+            citation_details = result.get("citation_details") or metadata.get("citation_details")
             if sources_used:
                 sources = [str(identifier) for identifier in sources_used][:5]
             else:
@@ -497,6 +510,7 @@ def create_app() -> FastAPI:
                 routing=result.get("routing"),
                 timing=result.get("timing"),
                 correlation_id=get_correlation_id(),
+                citations=citation_details,
             )
 
         except ValidationError as e:

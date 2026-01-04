@@ -29,6 +29,8 @@ from .config import (
     DEFAULT_NUM_PREDICT,
     DEFAULT_RETRIES,
     MMR_LAMBDA,
+    MAX_CHUNKS_PER_ARTICLE,
+    MAX_CHUNKS_PER_SECTION,
     REFUSAL_STR,
     STRICT_CITATIONS,
     get_llm_client_mode,
@@ -216,6 +218,53 @@ def apply_mmr_diversification(
     return mmr_selected
 
 
+def _chunk_article_key(chunk: Dict[str, Any]) -> str:
+    meta = chunk.get("metadata", {}) or {}
+    for key in ("url", "source_url", "doc_url"):
+        val = chunk.get(key) or meta.get(key)
+        if val:
+            return str(val)
+    if chunk.get("article_id"):
+        return f"article:{chunk['article_id']}"
+    if meta.get("article_id"):
+        return f"article:{meta['article_id']}"
+    return str(chunk.get("doc_name") or chunk.get("id"))
+
+
+def _chunk_section_key(chunk: Dict[str, Any], article_key: str) -> str:
+    section = chunk.get("section") or chunk.get("subsection") or (chunk.get("metadata") or {}).get("section_type") or ""
+    return f"{article_key}::{section}"
+
+
+def apply_diversity_limits(selected: List[int], chunks: List[Dict[str, Any]]) -> List[int]:
+    """Limit over-representation from the same article/section."""
+
+    max_per_article = MAX_CHUNKS_PER_ARTICLE
+    max_per_section = MAX_CHUNKS_PER_SECTION
+    if max_per_article <= 0 and max_per_section <= 0:
+        return selected
+
+    filtered: List[int] = []
+    article_counts: Dict[str, int] = {}
+    section_counts: Dict[str, int] = {}
+
+    for idx in selected:
+        chunk = chunks[idx]
+        article_key = _chunk_article_key(chunk)
+        section_key = _chunk_section_key(chunk, article_key)
+
+        if max_per_article > 0 and article_counts.get(article_key, 0) >= max_per_article:
+            continue
+        if max_per_section > 0 and section_counts.get(section_key, 0) >= max_per_section:
+            continue
+
+        filtered.append(idx)
+        article_counts[article_key] = article_counts.get(article_key, 0) + 1
+        section_counts[section_key] = section_counts.get(section_key, 0) + 1
+
+    return filtered or selected
+
+
 def apply_reranking(
     question: str,
     chunks: List[Dict],
@@ -259,6 +308,34 @@ def apply_reranking(
             logger.debug("info: rerank=fallback reason=%s", rerank_reason)
 
     return mmr_selected, rerank_scores, rerank_applied, rerank_reason, timing
+
+
+def build_citation_details(chunks: List[Dict[str, Any]], packed_ids: List[Any]) -> List[Dict[str, Any]]:
+    """Build rich citation objects from packed chunk IDs."""
+
+    if not packed_ids:
+        return []
+
+    chunk_by_id = {str(c.get("id")): c for c in chunks}
+    details: List[Dict[str, Any]] = []
+
+    for cid in packed_ids:
+        chunk = chunk_by_id.get(str(cid))
+        if not chunk:
+            continue
+        meta = chunk.get("metadata") or {}
+        details.append(
+            {
+                "id": str(chunk.get("id")),
+                "title": chunk.get("title") or chunk.get("doc_name") or "",
+                "url": chunk.get("url") or meta.get("source_url") or meta.get("url") or "",
+                "section": chunk.get("section") or "",
+                "breadcrumb": meta.get("breadcrumb") or "",
+                "article_id": str(chunk.get("article_id") or meta.get("article_id") or ""),
+            }
+        )
+
+    return details
 
 
 def extract_citations(text: str) -> List[str]:
@@ -626,10 +703,13 @@ def answer_once(
         retries=retries,
     )
 
+    mmr_selected = apply_diversity_limits(mmr_selected, chunks)
+
     # Pack snippets grouped by article
     context_block, packed_ids, used_tokens, article_blocks = pack_snippets(
         chunks, mmr_selected, pack_top=pack_top, num_ctx=num_ctx
     )
+    citation_details = build_citation_details(chunks, packed_ids)
 
     def _llm_failure(reason: str, error: Exception) -> Dict[str, Any]:
         total_time = time.time() - t_start
@@ -735,6 +815,7 @@ def answer_once(
         "answer_style": structured_meta.get("answer_style"),
         "needs_human_escalation": structured_meta.get("needs_human_escalation"),
         "sources_used": sources_used,
+        "citation_details": citation_details,
         "selected_chunks": _normalize_chunk_ids(selected),
         "packed_chunks": _normalize_chunk_ids(mmr_selected),
         "selected_chunk_ids": _normalize_chunk_ids(packed_ids),
@@ -753,6 +834,7 @@ def answer_once(
             "rerank_applied": rerank_applied,
             "rerank_reason": rerank_reason,
             "source_chunk_ids": _normalize_chunk_ids(packed_ids),
+            "citation_details": citation_details,
             "reasoning": reasoning,  # LLM's explanation (new JSON format)
             "sources_used": sources_used,  # LLM's cited sources (new JSON format)
             **structured_meta,

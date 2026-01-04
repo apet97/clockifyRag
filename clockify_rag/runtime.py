@@ -91,7 +91,28 @@ def ensure_index_ready(retries: int = 0) -> Tuple:
                 f"provide a valid knowledge base file to build the index (looked for: {', '.join(candidates)})",
             )
 
-    result = load_index()
+    result = load_index(kb_path)
+    if isinstance(result, dict) and (result.get("meta") or {}).get("_stale"):
+        if config.AUTO_REBUILD_ON_STALE:
+            logger.info("[rebuild] index stale; rebuilding because AUTO_REBUILD_ON_STALE=1")
+            if kb_exists:
+                try:
+                    build(kb_path, retries=retries)
+                    result = load_index(kb_path)
+                except Exception as exc:
+                    log_and_raise(
+                        IndexLoadError,
+                        f"Failed to rebuild stale index: {str(exc)}",
+                        f"check {kb_path} or provide one of: {', '.join(candidates)}",
+                    )
+            else:
+                log_and_raise(
+                    IndexLoadError,
+                    f"{kb_path} not found while rebuilding stale index",
+                    f"provide a valid knowledge base file to build the index (looked for: {', '.join(candidates)})",
+                )
+        else:
+            logger.info("[rebuild] index stale; set AUTO_REBUILD_ON_STALE=1 to rebuild automatically")
     if result is None:
         logger.info("[rebuild] artifact validation failed: rebuilding...")
         if kb_exists:

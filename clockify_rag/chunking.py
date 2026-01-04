@@ -8,7 +8,7 @@ import logging
 import pathlib
 import re
 import unicodedata
-import uuid
+import hashlib
 from typing import Any, Dict, List, Optional
 
 from .config import CHUNK_CHARS, CHUNK_OVERLAP
@@ -481,8 +481,11 @@ def build_chunks(md_path: str) -> list:
                 text_chunks = sliding_chunks(sect)
 
                 for chunk_idx, piece in enumerate(text_chunks):
-                    # Create a meaningful ID that includes document structure info
-                    cid = f"{slug}_{sect_idx}_{chunk_idx}_{str(uuid.uuid4())[:8]}"
+                    enriched_text = f"Context: {breadcrumb}\n\n{piece}" if breadcrumb else piece
+                    # Stable ID for repeatable citations across rebuilds
+                    hash_source = f"{slug}|{sect_idx}|{chunk_idx}|{enriched_text}"
+                    cid_hash = hashlib.sha1(hash_source.encode("utf-8")).hexdigest()[:8]
+                    cid = f"{slug}_{sect_idx}_{chunk_idx}_{cid_hash}"
 
                     # Extract additional metadata
                     metadata = {**extract_metadata(piece), **meta}
@@ -494,7 +497,6 @@ def build_chunks(md_path: str) -> list:
                     if breadcrumb:
                         metadata["breadcrumb"] = breadcrumb
 
-                    enriched_text = f"Context: {breadcrumb}\n\n{piece}" if breadcrumb else piece
                     chunk_obj = {
                         "id": cid,
                         "article_id": article_id,

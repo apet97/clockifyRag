@@ -351,6 +351,7 @@ def build(md_path: str, retries=None):
         chunk_hashes = []
         cache_hits = []
         cache_miss_indices = []
+        cache_changed = False
 
         for i, chunk in enumerate(chunks):
             chunk_hash = hashlib.sha256(chunk["text"].encode("utf-8")).hexdigest()
@@ -361,6 +362,14 @@ def build(md_path: str, retries=None):
             else:
                 cache_hits.append(None)
                 cache_miss_indices.append(i)
+
+        valid_hashes = set(chunk_hashes)
+        stale_keys = [key for key in emb_cache.keys() if key not in valid_hashes]
+        if stale_keys:
+            for key in stale_keys:
+                emb_cache.pop(key, None)
+            cache_changed = True
+            logger.info(f"  Pruned {len(stale_keys)} stale embedding cache entries")
 
         hit_rate = (len(chunks) - len(cache_miss_indices)) / len(chunks) * 100 if chunks else 0
         logger.info(f"  Cache: {len(chunks) - len(cache_miss_indices)}/{len(chunks)} hits ({hit_rate:.1f}%)")
@@ -382,6 +391,7 @@ def build(md_path: str, retries=None):
             for i, idx in enumerate(cache_miss_indices):
                 chunk_hash = chunk_hashes[idx]
                 emb_cache[chunk_hash] = new_embeddings[i].astype(np.float32)
+            cache_changed = True
 
         # Reconstruct full embedding matrix with dimension validation
         vecs_list: list = []
@@ -423,7 +433,7 @@ def build(md_path: str, retries=None):
 
         vecs = np.array(vecs_list, dtype=np.float32)
 
-        if cache_miss_indices:
+        if cache_miss_indices or cache_changed:
             save_embedding_cache(emb_cache)
 
         # Normalize embeddings

@@ -420,6 +420,15 @@ DEFAULT_SEED = 42
 # Keep query size bounded to protect embedding/LLM latency and cost
 MAX_QUERY_LENGTH = _parse_env_int("MAX_QUERY_LENGTH", 20000, min_val=100, max_val=1000000)  # Was 1M, now 20K
 
+# ====== DIVERSITY GUARDRAILS ======
+# Set to 0 to disable limits.
+MAX_CHUNKS_PER_ARTICLE = _parse_env_int("MAX_CHUNKS_PER_ARTICLE", 2, min_val=0, max_val=50)
+MAX_CHUNKS_PER_SECTION = _parse_env_int("MAX_CHUNKS_PER_SECTION", 1, min_val=0, max_val=50)
+
+# ====== STARTUP BEHAVIOR ======
+# When enabled, stale indexes auto-rebuild on startup.
+AUTO_REBUILD_ON_STALE = _get_bool_env("AUTO_REBUILD_ON_STALE", "0")
+
 # ====== BM25 CONFIG ======
 # BM25 parameters (tuned for technical documentation)
 # OPTIMIZATION: Increase k1 from 1.0 to 1.2 for slightly better term frequency saturation
@@ -656,6 +665,8 @@ ANN_CANDIDATE_MIN = _parse_env_int(
 # Reranking (Quick Win #6)
 RERANK_SNIPPET_MAX_CHARS = 500  # Truncate chunk text for reranking prompt
 RERANK_MAX_CHUNKS = 12  # Maximum chunks to send to reranking
+RERANK_CACHE_MAX_ITEMS = _parse_env_int("RERANK_CACHE_MAX_ITEMS", 256, min_val=0, max_val=5000)
+RERANK_CACHE_TTL_SEC = _parse_env_int("RERANK_CACHE_TTL_SEC", 300, min_val=0, max_val=86400)
 
 # Retrieval thresholds (Quick Win #6)
 COVERAGE_MIN_CHUNKS = 2  # Minimum chunks above threshold to proceed

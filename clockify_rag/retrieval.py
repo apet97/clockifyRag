@@ -11,13 +11,16 @@ This module contains all retrieval-related functionality:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
 import os
 import pathlib
 import re
+import threading
 import time
+from collections import OrderedDict
 from typing import Any, Optional, Dict, List, Tuple
 
 import numpy as np
@@ -36,6 +39,65 @@ logger = logging.getLogger(__name__)
 # FIX (Error #15): Add thread-safe lock for concurrent access to profiling state
 _RETRIEVE_PROFILE_LOCK = __import__("threading").RLock()
 RETRIEVE_PROFILE_LAST: dict = {}
+
+# ====== RERANK CACHE ======
+_RERANK_CACHE_LOCK = threading.Lock()
+_RERANK_CACHE: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
+
+
+def _rerank_cache_enabled() -> bool:
+    return config.RERANK_CACHE_MAX_ITEMS > 0 and config.RERANK_CACHE_TTL_SEC > 0
+
+
+def _make_rerank_cache_key(question: str, selected: List[int], chunks) -> str:
+    norm_q = " ".join(question.lower().split())
+    hasher = hashlib.sha256()
+    hasher.update(norm_q.encode("utf-8"))
+    hasher.update(b"|")
+    for idx in selected:
+        cid = str(chunks[idx].get("id"))
+        hasher.update(cid.encode("utf-8"))
+        hasher.update(b",")
+    return hasher.hexdigest()
+
+
+def _rerank_cache_get(cache_key: str, selected: List[int], chunks) -> Optional[Tuple[List[int], Dict[int, float]]]:
+    if not _rerank_cache_enabled():
+        return None
+
+    now = time.time()
+    with _RERANK_CACHE_LOCK:
+        entry = _RERANK_CACHE.get(cache_key)
+        if not entry:
+            return None
+        if entry.get("expires_at", 0) <= now:
+            _RERANK_CACHE.pop(cache_key, None)
+            return None
+        _RERANK_CACHE.move_to_end(cache_key)
+        order_ids = entry.get("order_ids") or []
+        scores_by_id = entry.get("scores") or {}
+
+    cid_to_idx = {str(chunks[i].get("id")): i for i in selected}
+    order = [cid_to_idx[cid] for cid in order_ids if cid in cid_to_idx]
+    if not order:
+        return None
+    scores = {cid_to_idx[cid]: float(score) for cid, score in scores_by_id.items() if cid in cid_to_idx}
+    return order, scores
+
+
+def _rerank_cache_put(cache_key: str, order_ids: List[str], scores_by_id: Dict[str, float]) -> None:
+    if not _rerank_cache_enabled():
+        return
+
+    with _RERANK_CACHE_LOCK:
+        _RERANK_CACHE[cache_key] = {
+            "order_ids": order_ids,
+            "scores": scores_by_id,
+            "expires_at": time.time() + config.RERANK_CACHE_TTL_SEC,
+        }
+        _RERANK_CACHE.move_to_end(cache_key)
+        while len(_RERANK_CACHE) > config.RERANK_CACHE_MAX_ITEMS:
+            _RERANK_CACHE.popitem(last=False)
 
 
 def get_retrieve_profile():
@@ -863,6 +925,14 @@ def rerank_with_llm(
     if len(selected) <= 1:
         return selected, {}, False, "disabled"
 
+    cache_key = None
+    if _rerank_cache_enabled():
+        cache_key = _make_rerank_cache_key(question, selected, chunks)
+        cached = _rerank_cache_get(cache_key, selected, chunks)
+        if cached:
+            order, scores = cached
+            return order, scores, True, "cache"
+
     # Build passage list
     passages_text = "\n\n".join(
         [f"[id={chunks[i]['id']}]\n{chunks[i]['text'][:config.RERANK_SNIPPET_MAX_CHARS]}" for i in selected]
@@ -929,6 +999,10 @@ def rerank_with_llm(
 
             if reranked:
                 reranked.sort(key=lambda x: x[1], reverse=True)
+                if cache_key:
+                    order_ids = [str(chunks[idx]["id"]) for idx, _ in reranked]
+                    scores_by_id = {str(chunks[idx]["id"]): float(score) for idx, score in rerank_scores.items()}
+                    _rerank_cache_put(cache_key, order_ids, scores_by_id)
                 return [idx for idx, _ in reranked], rerank_scores, True, ""
             else:
                 logger.debug("info: rerank=fallback reason=empty")

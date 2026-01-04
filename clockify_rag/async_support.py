@@ -272,7 +272,7 @@ async def async_answer_once(
         Dict with answer and metadata (same format as answer_once)
     """
     from .retrieval import retrieve, coverage_ok, pack_snippets
-    from .answer import apply_mmr_diversification
+    from .answer import apply_mmr_diversification, apply_diversity_limits, build_citation_details
 
     t_start = time.time()
 
@@ -328,10 +328,13 @@ async def async_answer_once(
             retries=retries,
         )
 
+    mmr_selected = apply_diversity_limits(mmr_selected, chunks)
+
     # Pack snippets
     context_block, packed_ids, used_tokens, article_blocks = pack_snippets(
         chunks, mmr_selected, pack_top=pack_top, num_ctx=num_ctx
     )
+    citation_details = build_citation_details(chunks, packed_ids)
 
     def _failure(reason: str, error: Exception) -> Dict[str, Any]:
         total_time = time.time() - t_start
@@ -400,6 +403,7 @@ async def async_answer_once(
         "answer_style": (structured_meta or {}).get("answer_style"),
         "needs_human_escalation": (structured_meta or {}).get("needs_human_escalation"),
         "sources_used": sources_used,
+        "citation_details": citation_details,
         "selected_chunks": selected,
         "packed_chunks": mmr_selected,
         "context_block": context_block,
@@ -416,6 +420,7 @@ async def async_answer_once(
             "used_tokens": used_tokens,
             "rerank_applied": rerank_applied,
             "rerank_reason": rerank_reason,
+            "citation_details": citation_details,
             "reasoning": reasoning,
             "sources_used": sources_used,
             **(structured_meta or {}),
