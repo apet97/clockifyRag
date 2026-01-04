@@ -290,9 +290,10 @@ def _check_remote_models(base_url: str, timeout: float = 5.0) -> list:
     """
     try:
         tags_url = f"{base_url}/api/tags"
-        with requests.Session() as session:
-            session.trust_env = allow_proxies_enabled()
-            resp = session.get(tags_url, timeout=timeout, allow_redirects=False)
+        proxies = None
+        if not allow_proxies_enabled():
+            proxies = {"http": None, "https": None}
+        resp = requests.get(tags_url, timeout=timeout, allow_redirects=False, proxies=proxies)
         resp.raise_for_status()
         data = resp.json()
         models = [m["name"] for m in data.get("models", [])]
