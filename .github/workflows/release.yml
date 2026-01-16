@@ -1,0 +1,194 @@
+name: Release - Build and Push Docker Image
+
+on:
+  push:
+    tags:
+      - "v*.*.*"  # Match version tags like v5.9.0
+    branches:
+      - main
+
+jobs:
+  # =========================================================================
+  # Docker Multi-Platform Build and Push
+  # =========================================================================
+  docker:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    env:
+      DOCKERHUB_USER: ${{ secrets.DOCKER_USERNAME }}
+      DOCKERHUB_PASS: ${{ secrets.DOCKER_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Configure Docker image targets
+        id: image_config
+        run: |
+          if [ -n "${DOCKERHUB_USER}" ] && [ -n "${DOCKERHUB_PASS}" ]; then
+            echo "docker_image=${DOCKERHUB_USER}/clockify-rag" >> "$GITHUB_OUTPUT"
+            echo "dockerhub_enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "docker_image=" >> "$GITHUB_OUTPUT"
+            echo "dockerhub_enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure GHCR target
+        id: ghcr_config
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: |
+          if [ -n "${GHCR_TOKEN}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "image=ghcr.io/${REPO_OWNER}/clockify-rag" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "image=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Log in to Docker Hub
+        if: steps.image_config.outputs.dockerhub_enabled == 'true'
+        uses: docker/login-action@v2
+        with:
+          username: ${{ env.DOCKERHUB_USER }}
+          password: ${{ env.DOCKERHUB_PASS }}
+
+      - name: Log in to GitHub Container Registry
+        if: steps.ghcr_config.outputs.enabled == 'true'
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Resolve metadata images
+        id: meta_images
+        env:
+          GHCR_ENABLED: ${{ steps.ghcr_config.outputs.enabled }}
+          DOCKERHUB_ENABLED: ${{ steps.image_config.outputs.dockerhub_enabled }}
+          GHCR_IMAGE: ${{ steps.ghcr_config.outputs.image }}
+          DOCKER_IMAGE: ${{ steps.image_config.outputs.docker_image }}
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: |
+          images=""
+          if [ "${GHCR_ENABLED}" = "true" ] && [ -n "${GHCR_IMAGE}" ]; then
+            images="${GHCR_IMAGE}"
+          fi
+          if [ "${DOCKERHUB_ENABLED}" = "true" ] && [ -n "${DOCKER_IMAGE}" ]; then
+            if [ -n "${images}" ]; then
+              images="${images}\n${DOCKER_IMAGE}"
+            else
+              images="${DOCKER_IMAGE}"
+            fi
+          fi
+          if [ -z "${images}" ]; then
+            images="ghcr.io/${REPO_OWNER}/clockify-rag"
+          fi
+          echo "images<<EOF" >> "$GITHUB_OUTPUT"
+          echo -e "${images}" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ steps.meta_images.outputs.images }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Resolve push targets
+        id: push_config
+        env:
+          GHCR_ENABLED: ${{ steps.ghcr_config.outputs.enabled }}
+          DOCKERHUB_ENABLED: ${{ steps.image_config.outputs.dockerhub_enabled }}
+        run: |
+          if [ "${GHCR_ENABLED}" = "true" ] || [ "${DOCKERHUB_ENABLED}" = "true" ]; then
+            echo "push=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "push=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push (multi-platform)
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: ${{ github.event_name == 'push' && steps.push_config.outputs.push == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Image digest
+        if: success()
+        run: echo "Image pushed successfully"
+
+  # =========================================================================
+  # GitHub Release
+  # =========================================================================
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: docker
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Build distribution packages
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/*
+          draft: false
+          prerelease: ${{ contains(github.ref, 'rc') || contains(github.ref, 'beta') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # =========================================================================
+  # PyPI Release
+  # =========================================================================
+  publish-pypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') && !contains(github.ref, 'rc') && !contains(github.ref, 'beta')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip build twine
+
+      - name: Build distributions
+        run: python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}

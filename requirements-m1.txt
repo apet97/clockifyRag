@@ -1,0 +1,163 @@
+# Clockify Support CLI v4.1.2 - M1/M2/M3 Installation Guide
+# Optimized for Apple Silicon (ARM64) using conda
+
+# ==============================================================================
+# ⚠️  IMPORTANT: THIS IS NOT A PIP REQUIREMENTS FILE
+# ==============================================================================
+#
+# This file is a CONDA INSTALLATION GUIDE for Apple Silicon Macs only.
+# It is NOT compatible with `pip install -r requirements-m1.txt`.
+#
+# For pip/Poetry installation:
+#   - Use `poetry install` (recommended) or `pip install -e .`
+#   - Dependencies are defined in pyproject.toml
+#
+# For Apple Silicon with conda (this guide):
+#   - Follow the conda commands below
+#   - Specific versions listed here may differ from pyproject.toml ranges
+#   - This is intentional - conda packages use different version strategies
+#
+# ==============================================================================
+# INSTALLATION INSTRUCTIONS FOR M1/M2/M3 MACS
+# ==============================================================================
+#
+# This file provides conda-based installation instructions for Apple Silicon.
+# Conda is RECOMMENDED over pip for M1 Macs due to better ARM64 package support,
+# especially for FAISS.
+#
+# QUICK START:
+#
+#   1. Install Homebrew (ARM64 native):
+#      /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+#
+#   2. Install Miniforge (conda for ARM):
+#      brew install miniforge
+#      conda init
+#      # Restart terminal
+#
+#   3. Create environment:
+#      conda create -n rag_env python=3.11
+#      conda activate rag_env
+#
+#   4. Install dependencies (run commands below):
+#
+# ==============================================================================
+# CONDA INSTALLATION COMMANDS
+# ==============================================================================
+
+# Step 1: Install FAISS (conda-forge has native ARM64 builds)
+# conda install -c conda-forge faiss-cpu=1.8.0
+
+# Step 2: Install NumPy and scientific computing
+# conda install -c conda-forge numpy
+
+# Step 3: Install HTTP libraries
+# conda install -c conda-forge requests
+
+# Step 4: Install PyTorch with MPS support (Apple GPU acceleration)
+# conda install -c pytorch pytorch
+
+# Step 5: Install SentenceTransformers (from conda-forge, NOT pytorch channel!)
+# conda install -c conda-forge sentence-transformers
+
+# Step 6: Install remaining packages via pip
+# pip install urllib3==2.2.3
+# pip install rank-bm25==0.2.2
+
+# ==============================================================================
+# VERIFICATION
+# ==============================================================================
+
+# Verify native ARM installation:
+#   python3 -c "import platform; print(f'Machine: {platform.machine()}, System: {platform.system()}')"
+#   Expected output: Machine: arm64, System: Darwin
+
+# Verify FAISS:
+#   python3 -c "import faiss; print(f'FAISS version: {faiss.__version__}')"
+
+# Verify PyTorch MPS:
+#   python3 -c "import torch; print(f'MPS available: {torch.backends.mps.is_available()}')"
+#   Expected output: MPS available: True (on macOS 12.3+)
+
+# Verify all dependencies:
+#   python3 -c "import numpy, requests, sentence_transformers, torch, rank_bm25, faiss; print('✅ All dependencies OK')"
+
+# ==============================================================================
+# ALTERNATIVE: PIP INSTALLATION (NOT RECOMMENDED FOR M1)
+# ==============================================================================
+
+# If you prefer pip (less reliable on M1 for FAISS):
+#   pip install -r requirements.txt
+
+# Note: FAISS may fail to install or crash. If this happens:
+#   1. Try conda installation above
+#   2. Or skip FAISS - application will use fallback mode:
+#      export USE_ANN=none
+#      python3 -m clockify_rag.cli_modern chat
+
+# ==============================================================================
+# EXACT VERSIONS (for reference)
+# ==============================================================================
+
+# These are the versions installed by the commands above:
+# python==3.11.8            # Conda Python 3.11 (ARM64 native)
+# numpy==2.3.4              # ARM-optimized builds
+# requests==2.32.5          # Pure Python (architecture-independent)
+# urllib3==2.2.3            # Pure Python
+# sentence-transformers==3.3.1  # Requires PyTorch
+# torch==2.4.2              # PyTorch with MPS support
+# rank-bm25==0.2.2          # Pure Python
+# faiss-cpu==1.8.0          # Conda-forge ARM64 build (stable)
+
+# ==============================================================================
+# TROUBLESHOOTING
+# ==============================================================================
+
+# Issue: "ImportError: _swigfaiss.so wrong architecture (have 'x86_64', need 'arm64')"
+# Solution: You installed x86_64 FAISS under Rosetta. Reinstall with conda:
+#   conda remove faiss-cpu
+#   conda install -c conda-forge faiss-cpu=1.8.0
+
+# Issue: "MPS not available" or PyTorch using CPU only
+# Solution: Ensure macOS 12.3+ and reinstall PyTorch:
+#   conda install -c pytorch pytorch --force-reinstall
+
+# Issue: Slow performance (embeddings taking >5 seconds)
+# Solution: Check if running under Rosetta instead of native ARM:
+#   python3 -c "import platform; print(platform.machine())"
+#   If shows "x86_64", reinstall Python via Homebrew:
+#     brew install python@3.11
+#     which python3  # Should be /opt/homebrew/bin/python3
+
+# Issue: Build crashes with "Segmentation fault"
+# Solution: This is a known issue with FAISS IVFFlat on M1. Ensure using v4.1.2+
+#   which automatically uses FlatIP fallback. Check logs for:
+#   "macOS arm64 detected: using IndexFlatIP"
+
+# ==============================================================================
+# PERFORMANCE EXPECTATIONS (M1 Pro, 16GB)
+# ==============================================================================
+
+# Build time:  ~30 seconds (384 chunks)
+# Query time:  ~6-11 seconds (including Ollama LLM inference)
+# Speedup:     30-70% faster than Intel Macs
+# Memory:      ~1.2 GB peak (with SentenceTransformers loaded)
+
+# ==============================================================================
+# ADDITIONAL RESOURCES
+# ==============================================================================
+
+# Documentation: README.md
+# Quick start: README.md
+# Troubleshooting: README.md
+
+# ==============================================================================
+# ONE-LINE INSTALL COMMAND
+# ==============================================================================
+
+# For copy-paste convenience (after creating conda environment):
+#
+# conda install -c conda-forge faiss-cpu=1.8.0 numpy requests && conda install -c pytorch pytorch && conda install -c conda-forge sentence-transformers && pip install urllib3==2.2.3 rank-bm25==0.2.2
+#
+# Verify:
+# python3 -c "import numpy, requests, sentence_transformers, torch, rank_bm25, faiss; print('✅ All dependencies OK')"

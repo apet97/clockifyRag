@@ -1,0 +1,114 @@
+name: Test
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  test:
+    name: Run tests on ${{ matrix.os }} with Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    env:
+      RAG_LLM_CLIENT: mock
+      EMB_BACKEND: local
+      RAG_OLLAMA_URL: http://127.0.0.1:11434
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]  # macos-14 = M1 runners (ARM64)
+        python-version: ["3.11", "3.12"]  # Test both supported versions
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Cache Poetry packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pypoetry
+        key: ${{ runner.os }}-poetry-cache
+        restore-keys: |
+          ${{ runner.os }}-poetry-
+
+    - name: Install Poetry
+      run: pip install "poetry>=1.7"
+
+    - name: Install dependencies
+      run: |
+        # Use Poetry with poetry.lock for reproducible builds
+        # This replaces ci_bootstrap.sh with Poetry's dependency management
+        poetry install --no-interaction --extras dev
+
+    - name: Install FAISS (Ubuntu only)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        pip install faiss-cpu==1.8.0
+
+    - name: Verify environment (non-strict)
+      run: |
+        poetry run python scripts/verify_env.py --json | python -m json.tool | head -30
+        echo "✓ Environment verification passed"
+      continue-on-error: false
+
+    - name: Verify environment (strict mode)
+      run: |
+        poetry run python scripts/verify_env.py --strict --json || true
+        echo "⚠️ Strict verify_env is informational only in CI (Ollama/index may be absent)"
+      continue-on-error: true  # Keep non-blocking for missing Ollama/index
+
+    - name: Run tests with pytest
+      env:
+        # Disable PyTorch MPS backend on macOS to avoid OOM errors in CI
+        PYTORCH_ENABLE_MPS_FALLBACK: "1"
+        PYTORCH_MPS_HIGH_WATERMARK_RATIO: "0.0"
+      run: |
+        poetry run pytest tests/ -v --cov=clockify_rag --cov-report=term-missing --cov-report=xml
+      continue-on-error: false  # Fail if tests fail
+
+    - name: Prepare dummy benchmark artifacts
+      run: |
+        poetry run python scripts/create_dummy_index.py
+
+    - name: Run quick benchmark smoke test
+      env:
+        BENCHMARK_FAKE_REMOTE: "1"
+      run: |
+        poetry run python benchmark.py --quick
+
+    - name: Run M1 compatibility tests (macOS only)
+      if: matrix.os == 'macos-14'
+      run: |
+        echo "Running M1-specific compatibility tests..."
+        bash scripts/m1_compatibility_test.sh
+        echo ""
+        echo "✅ M1 compatibility tests completed"
+
+    - name: Upload M1 test logs (macOS only)
+      if: matrix.os == 'macos-14'
+      uses: actions/upload-artifact@v4
+      with:
+        name: m1-compatibility-log-${{ matrix.python-version }}
+        path: m1_compatibility.log
+      continue-on-error: true
+
+    - name: Upload coverage reports to Codecov
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
+        verbose: true
+      continue-on-error: true
+
+    - name: Test summary
+      if: always()
+      run: |
+        echo "✅ Tests completed"
+        echo "Note: Integration tests requiring Ollama are skipped in CI"

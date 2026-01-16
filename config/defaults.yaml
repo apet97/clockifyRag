@@ -1,0 +1,418 @@
+# Clockify RAG Configuration Defaults
+# This file documents all configurable parameters.
+# Override with environment variables or create a .env file.
+#
+# Format: Environment variable names are derived from YAML paths:
+#   - data.kb_path → DATA_KB_PATH
+#   - embedding.model → EMBEDDING_MODEL
+#   - etc.
+#
+# See README.md for detailed explanations of each parameter.
+
+# ============================================================================
+# Data & Index Management
+# ============================================================================
+data:
+  # Path to knowledge base markdown file
+  kb_path: ./knowledge_helpcenter.md
+
+  # Output directory for index artifacts
+  index_dir: ./var/index
+
+  # Temporary directory for build artifacts
+  temp_dir: ./var/tmp
+
+  # Log directory for queries
+  log_dir: ./var/logs
+
+# ============================================================================
+# Embedding Configuration
+# ============================================================================
+embedding:
+  # Backend: "local" (SentenceTransformer) or "ollama" (remote)
+  backend: ollama
+
+  # Model identifier for local embeddings (SentenceTransformer)
+  # Examples:
+  #   - intfloat/multilingual-e5-base (recommended, 768-dim)
+  #   - all-MiniLM-L6-v2 (fast, 384-dim)
+  #   - sentence-transformers/all-mpnet-base-v2 (accurate, 768-dim)
+  model: nomic-embed-text
+
+  # Embedding dimension
+  # - For local: typically 384 or 768
+  # - For Ollama: typically 768 (nomic-embed-text)
+  dimension: 768
+
+  # Batch size for embedding requests
+  batch_size: 32
+
+  # Max workers for parallel embedding (CPU cores recommended)
+  max_workers: 8
+
+  # Normalize embeddings to unit length (L2 normalization)
+  normalize: true
+
+  # Device: "mps" (Apple Silicon), "cuda" (NVIDIA), "cpu" (fallback)
+  # Auto-detected if omitted
+  device: null
+
+# ============================================================================
+# Ollama Configuration (if using remote embeddings/generation)
+# ============================================================================
+ollama:
+  # Base URL for Ollama service
+  url: http://10.127.0.192:11434
+
+  # Embedding model on Ollama server
+  embedding_model: nomic-embed-text
+
+  # Generation model on Ollama server
+  generation_model: qwen2.5:32b
+
+  # Connection timeout (seconds)
+  connect_timeout: 3.0
+
+  # Read timeout (seconds)
+  read_timeout: 120.0
+
+  # Retries on transient failures (for remote/unreliable connections)
+  retries: 2
+
+# ============================================================================
+# Chunking Strategy
+# ============================================================================
+chunking:
+  # Maximum characters per chunk
+  chunk_size: 1600
+
+  # Character overlap between chunks (for context preservation)
+  chunk_overlap: 200
+
+  # Splitting strategy: "markdown" or "sentence"
+  strategy: markdown
+
+# ============================================================================
+# Index Configuration
+# ============================================================================
+index:
+  # Index type: "faiss" (default), "hnsw" (ANN fallback), "bm25" (lexical only)
+  # Note: FAISS is recommended but requires conda on M1 Macs
+  type: faiss
+
+  # Fallback chain if primary index fails
+  # E.g., ["faiss", "hnsw", "bm25"]
+  fallback_chain:
+    - faiss
+    - hnsw
+    - bm25
+
+# ============================================================================
+# FAISS Index Configuration
+# ============================================================================
+faiss:
+  # IVF clusters (lower on M1 for stability: 64; higher on x86: 256)
+  nlist: 64
+
+  # Clusters to search per query
+  nprobe: 16
+
+  # Candidate multiplier for retrieval
+  candidate_multiplier: 3
+
+  # Minimum candidates even if top_k is small
+  candidate_min: 200
+
+# ============================================================================
+# HNSW Index Configuration (Alternative ANN)
+# ============================================================================
+hnsw:
+  # Max neighbors per node
+  m: 16
+
+  # Construction parameter (higher = more accurate, slower)
+  ef_construction: 200
+
+  # Search parameter (higher = more accurate, slower)
+  ef: 50
+
+  # Distance metric: "cosine" or "l2"
+  metric: cosine
+
+# ============================================================================
+# BM25 Configuration (Lexical Search)
+# ============================================================================
+bm25:
+  # Term frequency saturation parameter (1.0-2.0 typical)
+  # Higher = more emphasis on term frequency
+  k1: 1.2
+
+  # Length normalization (0.0-1.0)
+  # 0.0 = no normalization, 1.0 = full normalization
+  # 0.65 recommended for technical docs
+  b: 0.65
+
+# ============================================================================
+# Retrieval & Ranking
+# ============================================================================
+retrieval:
+  # Top-K candidates to retrieve before reranking
+  top_k: 15
+
+  # Final snippets to include in context
+  pack_top: 8
+
+  # Minimum similarity score for inclusion
+  similarity_threshold: 0.25
+
+  # Maximum query length (protection against DoS)
+  max_query_length: 20000
+
+  # Hybrid search alpha (0.0 = dense only, 1.0 = BM25 only, 0.5 = balanced)
+  alpha_hybrid: 0.5
+
+  # MMR (Maximal Marginal Relevance) lambda for diversity
+  # 0.0 = maximize diversity, 1.0 = maximize relevance
+  mmr_lambda: 0.75
+
+  # Use intent classification for dynamic alpha adjustment
+  use_intent_classification: true
+
+# ============================================================================
+# Context Budget & Generation
+# ============================================================================
+generation:
+  # Maximum tokens for context window
+  # Qwen 32B: 32K tokens, we use ~60% = 12K tokens
+  context_token_budget: 12000
+
+  # Estimated chars per token (rough: 4 chars per token)
+  chars_per_token: 4.0
+
+  # Maximum output tokens for generation
+  max_output_tokens: 512
+
+  # Number of context tokens available in LLM
+  # Qwen 32B: 32768
+  num_context_tokens: 32768
+
+# ============================================================================
+# Reranking (Optional)
+# ============================================================================
+reranking:
+  # Enable cross-encoder reranking (requires bge-reranker-large)
+  enabled: false
+
+  # Model to use: "bge-reranker-large", "bge-reranker-base", etc.
+  model: bge-reranker-large
+
+  # Maximum chunks to rerank
+  max_chunks: 12
+
+  # Maximum characters per chunk for reranking prompt
+  snippet_max_chars: 500
+
+# ============================================================================
+# Caching
+# ============================================================================
+caching:
+  # Enable query result caching
+  enabled: true
+
+  # Cache size (number of queries)
+  max_queries: 1000
+
+  # Cache TTL (seconds)
+  ttl_seconds: 3600
+
+  # Cache backend: "memory" or "redis" (redis not yet implemented)
+  backend: memory
+
+# ============================================================================
+# Rate Limiting
+# ============================================================================
+rate_limiting:
+  # Enable rate limiting
+  enabled: true
+
+  # Queries per minute per IP
+  queries_per_minute: 60
+
+  # Burst allow: max queries per burst
+  burst_queries: 10
+
+# ============================================================================
+# FAQ Caching (Precomputed)
+# ============================================================================
+faq_cache:
+  # Enable precomputed FAQ cache for instant responses
+  enabled: false
+
+  # Path to FAQ cache file (generated during build)
+  cache_file: ./var/faq_cache.json
+
+  # FAQ list file (JSONL: questions and answers)
+  faq_list: ./data/faqs.jsonl
+
+# ============================================================================
+# Confidence Routing (Analysis Section 9.1 #4)
+# ============================================================================
+confidence_routing:
+  # Enable confidence-based routing for low-confidence queries
+  enabled: true
+
+  # Confidence thresholds
+  escalation_threshold: 0.40  # < 0.4 = escalate to human
+  medium_threshold: 0.60      # 0.4-0.6 = medium confidence
+  good_threshold: 0.75        # 0.6-0.75 = good confidence
+  high_threshold: 0.85        # > 0.85 = high confidence
+
+  # Action for low-confidence queries: "escalate", "answer_with_disclaimer", "refuse"
+  low_confidence_action: escalate
+
+# ============================================================================
+# Build & Lock Configuration
+# ============================================================================
+build:
+  # Lock file path (prevents concurrent builds)
+  lock_file: .build.lock
+
+  # Lock TTL (seconds)
+  lock_ttl: 900  # 15 minutes
+
+  # Log level during build: "debug", "info", "warning", "error"
+  log_level: info
+
+# ============================================================================
+# Logging
+# ============================================================================
+logging:
+  # Log level: "debug", "info", "warning", "error", "critical"
+  level: info
+
+  # Query logging
+  log_queries: true
+
+  # Query log file (JSONL format)
+  query_log_file: ./var/logs/rag_queries.jsonl
+
+  # Include answer in logs (privacy sensitive)
+  log_answers: true
+
+  # Include chunk text in logs (privacy sensitive)
+  log_chunks: false
+
+  # Redaction placeholder for sensitive content
+  redaction_placeholder: "[REDACTED]"
+
+  # Strict citation validation
+  strict_citations: false
+
+# ============================================================================
+# API Server Configuration
+# ============================================================================
+api:
+  # Host to bind to
+  host: 127.0.0.1
+
+  # Port
+  port: 8000
+
+  # Number of worker threads
+  workers: 4
+
+  # Enable CORS (cross-origin requests)
+  enable_cors: true
+
+  # CORS allowed origins (comma-separated or "*" for all)
+  cors_origins: "*"
+
+  # API key for authentication (optional)
+  # Set to empty string to disable
+  api_key: null
+
+  # Request timeout (seconds)
+  request_timeout: 120
+
+# ============================================================================
+# External LLM Providers (Optional)
+# ============================================================================
+providers:
+  # OpenAI API
+  openai:
+    enabled: false
+    api_key_env: OPENAI_API_KEY
+    model: gpt-4-turbo
+
+  # Anthropic API
+  anthropic:
+    enabled: false
+    api_key_env: ANTHROPIC_API_KEY
+    model: ""
+
+  # Ollama (local or remote)
+  ollama:
+    enabled: true
+    base_url_env: OLLAMA_URL
+    model_env: GEN_MODEL
+
+# ============================================================================
+# Evaluation Configuration
+# ============================================================================
+evaluation:
+  # Enable RAGAS evaluation
+  enabled: false
+
+  # Evaluation questions file (JSONL format)
+  questions_file: ./data/eval_questions.jsonl
+
+  # Ground truth answers file (JSONL format)
+  ground_truth_file: ./data/eval_answers.jsonl
+
+  # Output directory for evaluation reports
+  output_dir: ./var/reports
+
+  # Metrics to compute: "faithfulness", "answer_relevancy", "context_precision", "context_recall"
+  metrics:
+    - faithfulness
+    - answer_relevancy
+    - context_precision
+    - context_recall
+
+# ============================================================================
+# Storage Configuration
+# ============================================================================
+storage:
+  # Storage backend: "local" (default), "s3" (not yet implemented)
+  backend: local
+
+  # Local storage path
+  local_path: ./var/storage
+
+  # S3 configuration (when backend = s3)
+  s3:
+    bucket: null
+    prefix: rag/
+    region: us-east-1
+
+  # Backup configuration
+  backup:
+    enabled: false
+    backup_dir: ./var/backups
+    retention_days: 30
+
+# ============================================================================
+# Advanced / Debugging
+# ============================================================================
+advanced:
+  # Enable debug logging
+  debug: false
+
+  # Enable profiling
+  profiling_enabled: false
+
+  # Profiling output file
+  profiling_file: ./var/profiling.txt
+
+  # Seed for reproducibility
+  seed: 42

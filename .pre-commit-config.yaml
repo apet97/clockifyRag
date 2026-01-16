@@ -1,0 +1,99 @@
+# Pre-commit hooks for code quality
+# Install: pre-commit install
+# Run manually: pre-commit run --all-files
+# Update hooks: pre-commit autoupdate
+
+repos:
+  # Ruff - Fast Python linter (replaces flake8, isort, pyupgrade)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        name: Run ruff linter
+        args: ['--fix', '--config', 'pyproject.toml']
+        types: [python]
+
+  # Mypy - Static type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        name: Run mypy type checker
+        args: ['--config-file', 'pyproject.toml']
+        additional_dependencies:
+          - 'types-requests'
+        exclude: '^tests/'
+        # Continue even if mypy finds errors (non-blocking)
+        verbose: true
+        # Only run on main file for speed
+        files: '^clockify_support_cli_final\.py$'
+
+  # Black - Code formatter
+  - repo: https://github.com/psf/black
+    rev: 24.1.1
+    hooks:
+      - id: black
+        name: Format code with black
+        args: ['--config', 'pyproject.toml']
+        types: [python]
+
+  # Built-in pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # Remove trailing whitespace
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+        exclude: '\.md$'  # Don't trim markdown (may be intentional)
+
+      # Ensure files end with newline
+      - id: end-of-file-fixer
+        name: Fix end of files
+
+      # Check for merge conflicts
+      - id: check-merge-conflict
+        name: Check for merge conflicts
+
+      # Check YAML syntax
+      - id: check-yaml
+        name: Check YAML syntax
+        args: ['--unsafe']  # Allow custom YAML tags
+
+      # Check JSON syntax
+      - id: check-json
+        name: Check JSON syntax
+        exclude: '\.jsonl$'  # JSONL is line-delimited, not strict JSON
+
+      # Check TOML syntax
+      - id: check-toml
+        name: Check TOML syntax
+
+      # Prevent large files from being committed
+      - id: check-added-large-files
+        name: Check for large files
+        args: ['--maxkb=1000']  # 1MB limit
+        exclude: '^(knowledge_full\.md|.*\.npy)$'  # Exclude known large files
+
+      # Check Python syntax
+      - id: check-ast
+        name: Check Python AST
+
+      # Detect private key files
+      - id: detect-private-key
+        name: Detect private keys
+
+      # Mixed line endings
+      - id: mixed-line-ending
+        name: Fix mixed line endings
+        args: ['--fix=lf']  # Force LF (Unix) line endings
+
+  # Pytest - Run tests before commit (optional, can be slow)
+  # Uncomment to enable:
+  # - repo: local
+  #   hooks:
+  #     - id: pytest
+  #       name: Run pytest tests
+  #       entry: python -m pytest tests/ -v --tb=short
+  #       language: system
+  #       pass_filenames: false
+  #       always_run: true

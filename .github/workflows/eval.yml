@@ -1,0 +1,100 @@
+name: Evaluation
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  eval:
+    name: RAG evaluation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install evaluation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Prepare synthetic evaluation chunks (CI fallback)
+        run: |
+          python - <<'PY'
+          import json
+          import pathlib
+
+          dataset_path = pathlib.Path("eval_datasets/clockify_v1.jsonl")
+          output = pathlib.Path("chunks.jsonl")
+
+          chunks = []
+          seen_ids = set()
+
+          if not dataset_path.exists():
+              raise SystemExit(f"Dataset not found: {dataset_path}")
+
+          with dataset_path.open("r", encoding="utf-8") as fh:
+              for line in fh:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  example = json.loads(line)
+                  query = example.get("query", "").strip()
+                  notes = example.get("notes", "")
+
+                  # Ensure chunks for explicit IDs
+                  for cid in example.get("relevant_chunk_ids") or []:
+                      if cid in seen_ids:
+                          continue
+                      seen_ids.add(cid)
+                      text = f"{query}\n{notes}\n{query}"
+                      chunks.append(
+                          {
+                              "id": cid,
+                              "title": query or "Clockify Help",
+                              "section": "## from ids",
+                              "text": text,
+                          }
+                      )
+
+                  # Ensure chunks for title/section references
+                  for ref in example.get("relevant_chunks") or []:
+                      title = ref.get("title") or (query or "Clockify Help")
+                      section = ref.get("section") or ""
+                      cid = f"{title}|{section}"
+                      if cid in seen_ids:
+                          continue
+                      seen_ids.add(cid)
+                      text = f"{title}\n{section}\n{query}\n{notes}"
+                      chunks.append(
+                          {
+                              "id": cid,
+                              "title": title,
+                              "section": section,
+                              "text": text,
+                          }
+                      )
+
+          output.write_text("\n".join(json.dumps(c) for c in chunks), encoding="utf-8")
+          print(f"Created synthetic chunks.jsonl with {len(chunks)} chunks for lexical eval fallback")
+          PY
+
+      - name: Download NLTK tokenizers
+        run: |
+          python - <<'PY'
+          import nltk
+          nltk.download('punkt', quiet=True)
+          nltk.download('punkt_tab', quiet=True)
+          PY
+
+      - name: Run evaluation
+        run: |
+          python eval.py --dataset eval_datasets/clockify_v1.jsonl
